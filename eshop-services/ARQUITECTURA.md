@@ -276,53 +276,8 @@ Diferencia clave frente a Catalog.API: agrega **pipeline behaviors** de MediatR 
 
 ---
 
-## 9. Despliegue en la nube (Azure + Neon + Upstash)
+## 9. Despliegue en la nube
 
-A diferencia del entorno local (`docker-compose.override.yml`, todo en un solo host Docker), el despliegue en la nube **separa cada pieza en un proveedor distinto**:
+El detalle completo de cómo está desplegado el proyecto en producción (Azure App Service, Neon, Upstash, Netlify, variables de entorno, CORS) vive en **[`DESPLIEGUE.md`](../DESPLIEGUE.md)**, en la raíz del repositorio (documenta tanto el backend como el frontend, por eso no está anidado aquí dentro de `eshop-services/`).
 
-```
-┌─────────────────────┐        ┌──────────────────────┐
-│  Netlify (frontend)  │        │   Azure App Service    │
-│  eshop-front (React) │──────▶│  Web App for Containers │
-└─────────────────────┘        │                          │
-                                │  ┌────────────────────┐  │
-                                │  │  catalog.api         │──┼───▶ Neon Postgres (catalogdb)
-                                │  └────────────────────┘  │
-                                │  ┌────────────────────┐  │
-                                │  │  basket.api           │──┼───▶ Neon Postgres (basketdb)
-                                │  └────────────────────┘  │      Upstash Redis
-                                └──────────────────────┘
-```
-
-- **catalog.api** y **basket.api** se publican como **dos Azure App Service (Web App for Containers) independientes**, cada uno corriendo la imagen construida desde su propio Dockerfile (`src/Catalog.API/Dockerfile`, `src/Basket/Basket.API/Dockerfile`).
-- Cada API sigue teniendo **su propia base de datos** (Database per Service), ahora como un proyecto/rama distinto en **Neon** en vez de un contenedor Postgres local.
-- **Redis** pasa de ser un contenedor local a una base **Upstash**, usada solo por `basket.api`.
-
-No se requieren cambios de código: `Program.cs` en ambas APIs ya lee `ConnectionStrings:Database`, `ConnectionStrings:Redis` y `Cors:AllowedOrigins` desde `IConfiguration`, que en Azure App Service se sobrescribe con **Application Settings** (Configuration → Application settings en el portal), sin tocar `appsettings.json`.
-
-### 9.1 Application Settings — `catalog.api`
-
-| Nombre | Valor (ejemplo) | Notas |
-|---|---|---|
-| `ASPNETCORE_ENVIRONMENT` | `Production` | |
-| `WEBSITES_PORT` | `8080` | Le dice a Azure a qué puerto del contenedor reenviar tráfico (coincide con `ASPNETCORE_HTTP_PORTS`/`EXPOSE 8080` del Dockerfile). |
-| `ConnectionStrings__Database` | `Host=ep-xxxx.neon.tech;Port=5432;Database=catalogdb;Username=xxxx;Password=xxxx;SSL Mode=Require;Trust Server Certificate=true` | Neon exige SSL; sin `SSL Mode=Require` la conexión falla. El host/usuario/password/nombre de DB los da el dashboard de Neon (botón "Connection string", pestaña ".NET"/Npgsql). |
-| `Cors__AllowedOrigins__0` | `https://<tu-app>.netlify.app` | Reemplaza (vía índice) a los orígenes `localhost` de `appsettings.json`. Agrega `__1`, `__2`, etc. si necesitas más de un origen (ej. dominio propio + Netlify). |
-
-### 9.2 Application Settings — `basket.api`
-
-Todo lo anterior (adaptado a `basketdb`) más:
-
-| Nombre | Valor (ejemplo) | Notas |
-|---|---|---|
-| `ConnectionStrings__Database` | `Host=ep-yyyy.neon.tech;Port=5432;Database=basketdb;Username=yyyy;Password=yyyy;SSL Mode=Require;Trust Server Certificate=true` | Proyecto/rama de Neon **distinto** al de `catalogdb` (o mismo proyecto, base de datos distinta — pero nunca la misma DB que catálogo). |
-| `ConnectionStrings__Redis` | `enabling-example-12345.upstash.io:6379,password=xxxxxxxx,ssl=True,abortConnect=False` | Formato de `StackExchange.Redis`, **no** una URL `redis://`. En el dashboard de Upstash, la pestaña "Connect" → ".NET" ya da la cadena en este formato exacto. |
-
-`AddStackExchangeRedisCache` y `.AddRedis(...)` (health check) leen ambos de `ConnectionStrings:Redis`, así que un solo valor cubre las dos cosas.
-
-### 9.3 Notas de despliegue
-
-- **Registro de imágenes**: "Web App for Containers" no construye desde `Dockerfile` directamente — hay que compilar la imagen (`docker build -f src/Catalog.API/Dockerfile -t <registro>/catalog-api:latest .` desde la raíz de `eshop-services/`, ídem para `basket.api`) y subirla a un registro (Azure Container Registry, Docker Hub, etc.) antes de apuntar el Web App a esa imagen. Como se descartó CI/CD por ahora, este paso se hace manualmente por ti en cada actualización.
-- **Health check**: `basket.api` ya expone `GET /health` (via `AspNetCore.HealthChecks`) — se puede configurar como *Health check path* del App Service para reinicios automáticos si el contenedor deja de responder. `catalog.api` no tiene endpoint de salud propio todavía.
-- **CORS en el frontend**: recuerda actualizar `VITE_CATALOG_API_URL` / `VITE_BASKET_API_URL` en Netlify (Site settings → Environment variables) a las URLs públicas de los dos App Service (`https://<nombre>.azurewebsites.net`), y agregar la URL de Netlify a `Cors__AllowedOrigins__*` en **ambas** APIs — si falta cualquiera de los dos lados, el navegador bloqueará las peticiones aunque las APIs respondan bien.
-- **`docker-compose.override.yml`** sigue siendo válido — es solo para desarrollo local; el entorno cloud no lo usa en absoluto.
+Nota rápida: el despliegue final **no usa Docker/contenedores** — se evaluó Azure Container Apps + Container Registry primero, pero se descartó por restricciones de la suscripción usada (Azure for Students bloquea `ACR Tasks` y ciertas regiones). Catalog.API y Basket.API terminaron publicados como **código** (no contenedor) en Azure App Service (Linux), vía Visual Studio. `docker-compose.override.yml` sigue vigente solo para desarrollo local.

@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# react-router usa rutas del lado del cliente (BrowserRouter); sin esta regla,
+# refrescar /cart o entrar directo por URL devolvería 404 en Netlify.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createProduct, deleteProduct, getProducts, updateProduct } from '../api/catalogApi'
 import ErrorMessage from '../components/ErrorMessage'
+import ImageCarousel from '../components/ImageCarousel'
 import Loader from '../components/Loader'
 import Pagination from '../components/Pagination'
 import ProductCard from '../components/ProductCard'
@@ -97,6 +98,8 @@ export default function ProductsPage() {
 
   return (
     <section className="products-page">
+      <ImageCarousel />
+
       <div className="products-page__header">
         <h1>Catálogo de productos</h1>
         <input

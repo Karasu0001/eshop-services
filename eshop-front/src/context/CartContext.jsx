@@ -1,17 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { deleteBasket, getBasket, storeBasket } from '../api/basketApi'
 
-const USERNAME_STORAGE_KEY = 'eshop_username'
-const DEFAULT_USERNAME = 'invitado'
+// Basket.API identifica el carrito por "userName" y no maneja autenticacion real,
+// por eso aqui se usa un unico usuario fijo ("admin") en vez de perfiles de verdad.
+const FIXED_USERNAME = 'admin'
 
 const CartContext = createContext(null)
 
-// Basket.API identifica el carrito por "userName" y no maneja autenticacion,
-// por eso aqui simulamos un usuario simple guardado en localStorage.
 export function CartProvider({ children }) {
-  const [userName, setUserNameState] = useState(
-    () => localStorage.getItem(USERNAME_STORAGE_KEY) || DEFAULT_USERNAME,
-  )
+  const userName = FIXED_USERNAME
   const [cart, setCart] = useState({ userName, items: [] })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -32,12 +29,6 @@ export function CartProvider({ children }) {
   useEffect(() => {
     refreshCart(userName)
   }, [userName, refreshCart])
-
-  const setUserName = useCallback((name) => {
-    const trimmed = name.trim() || DEFAULT_USERNAME
-    localStorage.setItem(USERNAME_STORAGE_KEY, trimmed)
-    setUserNameState(trimmed)
-  }, [])
 
   const addItem = useCallback(
     async (product, quantity = 1) => {
@@ -130,7 +121,6 @@ export function CartProvider({ children }) {
 
   const value = {
     userName,
-    setUserName,
     cart,
     loading,
     error,

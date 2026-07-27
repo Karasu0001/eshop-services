@@ -3,7 +3,7 @@ using Catalog.API.Exceptions;
 namespace Catalog.API.Models.Products.UpdateProduct
 {
     public record UpdateProductCommand(
-        Guid Id,
+        string CurrentName,
         string Name,
         List<string> Category,
         string Description,
@@ -19,11 +19,13 @@ namespace Catalog.API.Models.Products.UpdateProduct
         public async Task<UpdateProductResult> Handle(UpdateProductCommand command, CancellationToken cancellationToken)
         {
             logger.LogInformation("UpdateProectHandler.Handle llamado con {@Command}", command);
-            var product = await session.LoadAsync<Product>(command.Id, cancellationToken);
+
+            var product = await session.Query<Product>()
+                .FirstOrDefaultAsync(p => p.Name == command.CurrentName, cancellationToken);
 
             if (product is null)
-            { 
-                throw new ProductNotFoundException();
+            {
+                throw new ProductNotFoundException(command.CurrentName);
             }
 
             product.Name = command.Name;

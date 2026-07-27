@@ -1,11 +1,11 @@
 import { useCart } from '../context/CartContext'
+import { useCurrency } from '../context/CurrencyContext'
 import ErrorMessage from '../components/ErrorMessage'
 import Loader from '../components/Loader'
 
-const currencyFormatter = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'USD' })
-
 export default function CartPage() {
   const { cart, loading, error, totalPrice, removeItem, updateQuantity, clearCart, userName } = useCart()
+  const { format } = useCurrency()
 
   return (
     <section className="cart-page">
@@ -33,7 +33,7 @@ export default function CartPage() {
               {cart.items.map((item) => (
                 <tr key={item.productId}>
                   <td>{item.productName}</td>
-                  <td>{currencyFormatter.format(item.price)}</td>
+                  <td>{format(item.price)}</td>
                   <td>
                     <div className="quantity-stepper">
                       <button
@@ -55,7 +55,7 @@ export default function CartPage() {
                       </button>
                     </div>
                   </td>
-                  <td>{currencyFormatter.format(item.price * item.quantity)}</td>
+                  <td>{format(item.price * item.quantity)}</td>
                   <td>
                     <button type="button" className="link-button" onClick={() => removeItem(item.productId)}>
                       Quitar
@@ -67,7 +67,7 @@ export default function CartPage() {
           </table>
 
           <div className="cart-summary">
-            <span>Total: {currencyFormatter.format(totalPrice)}</span>
+            <span>Total: {format(totalPrice)}</span>
             <button type="button" onClick={clearCart}>
               Vaciar carrito
             </button>

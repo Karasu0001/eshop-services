@@ -6,7 +6,9 @@ using QuestPDF.Infrastructure;
 namespace OrderService.Orders.GenerateOrderPdf
 {
     // Comprobante de compra en PDF, estilo "detalle de tu pedido" (Mercado Libre / Amazon):
-    // encabezado de marca, datos de la orden, tabla de productos y totales.
+    // encabezado de marca, tarjetas de datos de la orden/cliente, detalle de productos y
+    // resumen de totales en formato etiqueta-valor. Solo usa datos que el sistema realmente
+    // tiene (no hay pago ni envio en este proyecto, por eso no se inventan esas secciones).
     public class OrderPdfDocument(Order order) : IDocument
     {
         private static readonly string CurrencyCulture = "en-US";
@@ -35,20 +37,14 @@ namespace OrderService.Orders.GenerateOrderPdf
 
         private void ComposeHeader(IContainer container)
         {
-            container.Row(row =>
+            container.Column(column =>
             {
-                row.RelativeItem().Column(column =>
+                column.Item().Row(row =>
                 {
-                    column.Item().Text("🍜 MaruchanMarket").FontSize(20).Bold().FontColor("#07271D");
-                    column.Item().Text("Comprobante de compra").FontSize(12).FontColor(Colors.Grey.Darken1);
+                    row.RelativeItem().Text("🍜 MaruchanMarket").FontSize(20).Bold().FontColor("#07271D");
+                    row.ConstantItem(110).AlignRight().Element(c => StatusBadge(c, order.Status));
                 });
-
-                row.ConstantItem(170).Column(column =>
-                {
-                    column.Item().AlignRight().Text($"Orden #{order.Id}").FontSize(9).FontColor(Colors.Grey.Darken1);
-                    column.Item().AlignRight().Text(order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")).FontSize(9).FontColor(Colors.Grey.Darken1);
-                    column.Item().AlignRight().PaddingTop(4).Element(c => StatusBadge(c, order.Status));
-                });
+                column.Item().PaddingTop(2).Text("Comprobante de compra").FontSize(12).FontColor(Colors.Grey.Darken1);
             });
         }
 
@@ -62,87 +58,88 @@ namespace OrderService.Orders.GenerateOrderPdf
                 _ => (status.ToString(), "#F0F0F0", "#000000"),
             };
 
-            container.Background(background).Padding(5).AlignRight().Text(label).FontSize(9).Bold().FontColor(foreground);
+            container.Background(background).CornerRadius(4).Padding(6).AlignCenter().Text(label).FontSize(9).Bold().FontColor(foreground);
         }
 
         private void ComposeContent(IContainer container)
         {
-            container.PaddingTop(20).Column(column =>
+            container.PaddingTop(18).Column(column =>
             {
-                column.Spacing(15);
+                column.Spacing(16);
 
-                column.Item().Background(Colors.Grey.Lighten4).Padding(10).Row(row =>
+                // Tarjetas de datos, al estilo de las cajas de "Pago" / "Envio" de Mercado Libre,
+                // pero solo con los datos que existen de verdad: orden y cliente.
+                column.Item().Row(row =>
                 {
-                    row.RelativeItem().Text(text =>
-                    {
-                        text.Span("Cliente: ").SemiBold();
-                        text.Span(order.CustomerId);
-                    });
-                    row.RelativeItem().AlignRight().Text(text =>
-                    {
-                        text.Span("Cantidad de productos: ").SemiBold();
-                        text.Span(order.Items.Count.ToString());
-                    });
+                    row.Spacing(12);
+                    row.RelativeItem().Element(c => InfoCard(c, "Orden", $"#{order.Id}",
+                        order.CreatedAt.ToLocalTime().ToString("dd 'de' MMMM 'de' yyyy, HH:mm",
+                            new System.Globalization.CultureInfo("es-MX"))));
+                    row.RelativeItem().Element(c => InfoCard(c, "Cliente", order.CustomerId,
+                        $"{order.Items.Count} producto(s) en esta orden"));
                 });
 
-                column.Item().Element(ComposeItemsTable);
-                column.Item().AlignRight().Element(ComposeTotals);
+                column.Item().Text("Detalle de la compra").FontSize(13).Bold().FontColor("#07271D");
+                column.Item().BorderBottom(1).BorderColor(Colors.Grey.Lighten2);
+
+                column.Item().Element(ComposeItemsList);
+
+                column.Item().PaddingTop(6).AlignRight().Element(ComposeSummaryCard);
             });
         }
 
-        private void ComposeItemsTable(IContainer container)
+        private void InfoCard(IContainer container, string label, string title, string subtitle)
         {
-            container.Table(table =>
+            container.Background(Colors.Grey.Lighten5).Border(1).BorderColor(Colors.Grey.Lighten2)
+                .CornerRadius(4).Padding(10).Column(column =>
             {
-                table.ColumnsDefinition(columns =>
-                {
-                    columns.RelativeColumn(4);
-                    columns.RelativeColumn(1);
-                    columns.RelativeColumn(2);
-                    columns.RelativeColumn(2);
-                });
+                column.Item().Text(label.ToUpperInvariant()).FontSize(8).SemiBold().FontColor(Colors.Grey.Darken1);
+                column.Item().PaddingTop(2).Text(title).FontSize(11).Bold();
+                column.Item().Text(subtitle).FontSize(9).FontColor(Colors.Grey.Darken1);
+            });
+        }
 
-                table.Header(header =>
-                {
-                    header.Cell().Element(HeaderCell).Text("Producto");
-                    header.Cell().Element(HeaderCell).AlignCenter().Text("Cant.");
-                    header.Cell().Element(HeaderCell).AlignRight().Text("Precio unitario");
-                    header.Cell().Element(HeaderCell).AlignRight().Text("Subtotal");
-
-                    static IContainer HeaderCell(IContainer c) =>
-                        c.DefaultTextStyle(x => x.SemiBold().FontColor(Colors.White))
-                            .Background("#07271D").Padding(6);
-                });
-
+        private void ComposeItemsList(IContainer container)
+        {
+            container.Column(column =>
+            {
                 foreach (var item in order.Items)
                 {
-                    table.Cell().Element(BodyCell).Text(item.ProductName);
-                    table.Cell().Element(BodyCell).AlignCenter().Text(item.Quantity.ToString());
-                    table.Cell().Element(BodyCell).AlignRight().Text(FormatMoney(item.UnitPrice));
-                    table.Cell().Element(BodyCell).AlignRight().Text(FormatMoney(item.LineTotal));
-
-                    static IContainer BodyCell(IContainer c) =>
-                        c.BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingVertical(6).PaddingHorizontal(6);
+                    column.Item().PaddingVertical(8).BorderBottom(1).BorderColor(Colors.Grey.Lighten3).Row(row =>
+                    {
+                        row.RelativeItem(4).Column(itemColumn =>
+                        {
+                            itemColumn.Item().Text(item.ProductName).FontSize(10).SemiBold();
+                            itemColumn.Item().Text($"Cantidad: {item.Quantity} · Precio unitario: {FormatMoney(item.UnitPrice)}")
+                                .FontSize(8.5f).FontColor(Colors.Grey.Darken1);
+                        });
+                        row.RelativeItem(1).AlignRight().AlignMiddle().Text(FormatMoney(item.LineTotal)).FontSize(10).SemiBold();
+                    });
                 }
             });
         }
 
-        private void ComposeTotals(IContainer container)
+        private void ComposeSummaryCard(IContainer container)
         {
-            container.Width(220).Column(column =>
+            container.Width(230).Background(Colors.Grey.Lighten5).Border(1).BorderColor(Colors.Grey.Lighten2)
+                .CornerRadius(4).Padding(12).Column(column =>
             {
-                TotalRow(column, "Subtotal", order.Subtotal, bold: false);
-                TotalRow(column, "Impuestos", order.Tax, bold: false);
-                column.Item().PaddingTop(4).BorderTop(1).BorderColor(Colors.Grey.Lighten1);
-                TotalRow(column, "Total", order.Total, bold: true);
+                SummaryRow(column, "Subtotal", order.Subtotal, bold: false, borderTop: false);
+                SummaryRow(column, "Impuestos", order.Tax, bold: false, borderTop: true);
+                SummaryRow(column, "Total", order.Total, bold: true, borderTop: true);
             });
         }
 
-        private void TotalRow(ColumnDescriptor column, string label, decimal value, bool bold)
+        private void SummaryRow(ColumnDescriptor column, string label, decimal value, bool bold, bool borderTop)
         {
-            column.Item().PaddingTop(2).Row(row =>
+            var item = column.Item().PaddingTop(bold ? 6 : 4);
+            if (borderTop)
+                item = item.PaddingTop(bold ? 10 : 6).BorderTop(1).BorderColor(Colors.Grey.Lighten2);
+
+            item.Row(row =>
             {
-                var labelSpan = row.RelativeItem().Text(label).FontSize(bold ? 12 : 10);
+                var labelSpan = row.RelativeItem().Text(label).FontSize(bold ? 12 : 10)
+                    .FontColor(bold ? Colors.Black : Colors.Grey.Darken2);
                 var valueSpan = row.ConstantItem(90).AlignRight().Text(FormatMoney(value)).FontSize(bold ? 12 : 10);
                 if (bold)
                 {

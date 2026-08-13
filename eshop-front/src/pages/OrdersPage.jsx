@@ -66,16 +66,11 @@ export default function OrdersPage() {
         <div className="orders-list">
           {orders.map((order) => (
             <article key={order.id} className="order-card">
-              <div className="order-card__barcode" aria-hidden="true" />
               <div className="order-card__header">
-                <div className="order-card__title">
-                  <span className="order-card__icon" aria-hidden="true">
-                    🍜
-                  </span>
-                  <div>
-                    <strong>Orden {order.id}</strong>
-                    <span className="order-card__date">{new Date(order.createdAt).toLocaleString()}</span>
-                  </div>
+                <div>
+                  <span className="eyebrow">Orden</span>
+                  <div className="receipt__id">#{order.id}</div>
+                  <span className="order-card__date">{new Date(order.createdAt).toLocaleString()}</span>
                 </div>
                 <span className={`order-status order-status--${order.status.toLowerCase()}`}>
                   <span className="order-status__dot" aria-hidden="true" />
@@ -83,16 +78,24 @@ export default function OrdersPage() {
                 </span>
               </div>
 
-              <ul className="order-card__items">
+              <ul className="line-list">
                 {order.items.map((item) => (
-                  <li key={item.productId}>
-                    {item.quantity}× {item.productName} — {currencyFallback(item.lineTotal)}
+                  <li key={item.productId} className="line-list__row">
+                    <div>
+                      <div className="line-list__name">{item.productName}</div>
+                      <div className="line-list__meta">
+                        {item.quantity} × {currencyFallback(item.unitPrice)}
+                      </div>
+                    </div>
+                    <span className="line-list__total">{currencyFallback(item.lineTotal)}</span>
                   </li>
                 ))}
               </ul>
 
               <div className="order-card__footer">
-                <span>Total: {currencyFallback(order.total)}</span>
+                <span>
+                  Total: <span className="amount">{currencyFallback(order.total)}</span>
+                </span>
                 <div className="order-card__actions">
                   <a
                     className="button--secondary"
@@ -100,7 +103,7 @@ export default function OrdersPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    🎫 Recibo
+                    Recibo
                   </a>
                   {order.status === 'Pending' && (
                     <>

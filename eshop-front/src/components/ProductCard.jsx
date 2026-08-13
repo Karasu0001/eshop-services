@@ -26,7 +26,7 @@ export default function ProductCard({ product, onEdit, onDelete }) {
           <img src={product.imageFiles} alt={product.name} onError={() => setImageFailed(true)} />
         ) : (
           <span className="product-card__image-placeholder" aria-hidden="true">
-            🛒
+            {product.name?.[0]?.toUpperCase() ?? '?'}
           </span>
         )}
       </div>
@@ -34,16 +34,11 @@ export default function ProductCard({ product, onEdit, onDelete }) {
         <div className="product-card__title-row">
           <h3>{product.name}</h3>
           <div className="product-card__admin-actions">
-            <button type="button" className="icon-button" title="Editar producto" onClick={() => onEdit(product)}>
-              ✎
+            <button type="button" className="text-action" onClick={() => onEdit(product)}>
+              Editar
             </button>
-            <button
-              type="button"
-              className="icon-button icon-button--danger"
-              title="Eliminar producto"
-              onClick={() => onDelete(product)}
-            >
-              🗑
+            <button type="button" className="text-action text-action--danger" onClick={() => onDelete(product)}>
+              Eliminar
             </button>
           </div>
         </div>
@@ -59,7 +54,7 @@ export default function ProductCard({ product, onEdit, onDelete }) {
       <div className="product-card__footer">
         <span className="product-card__price">{format(product.price)}</span>
         <button type="button" className="product-card__add-btn" onClick={handleAddToCart} disabled={adding}>
-          {added ? '✓ Agregado' : adding ? 'Agregando...' : '🛒 Agregar'}
+          {added ? 'Agregado' : adding ? 'Agregando...' : 'Agregar'}
         </button>
       </div>
     </article>

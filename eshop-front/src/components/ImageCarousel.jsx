@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 // Imagenes fijas del banner (no vienen de Catalog.API: el modelo de producto
 // solo soporta una imagen por producto, esto es solo decorativo).
@@ -13,130 +13,49 @@ const IMAGES = [
   },
   {
     src: 'https://m.media-amazon.com/images/I/61IEPWe2JCL.jpg',
-    label: 'Edicion picante',
+    label: 'Edición picante',
   },
 ]
 
-const AUTOPLAY_MS = 4200
-const DRAG_THRESHOLD = 50
+const AUTOPLAY_MS = 4500
 
-// Carrusel tipo "coverflow" 3D: todas las imagenes se posicionan en el espacio
-// segun su distancia (offset) al slide activo, usando perspective + rotateY +
-// translateZ. Soporta autoplay, arrastre con mouse/touch y navegacion por dots.
+// Carrusel simple de una sola imagen a la vez, con crossfade. Sin
+// perspectiva 3D ni arrastre: solo avanza sola o con flechas/puntos.
 export default function ImageCarousel() {
   const [activeIndex, setActiveIndex] = useState(0)
-  const [isInteracting, setIsInteracting] = useState(false)
-  const [drag, setDrag] = useState({ active: false, startX: 0, deltaX: 0 })
-  const trackRef = useRef(null)
+  const [paused, setPaused] = useState(false)
 
   const goTo = (delta) => {
     setActiveIndex((current) => (current + delta + IMAGES.length) % IMAGES.length)
   }
 
-  // Autoplay: se pausa mientras el usuario interactua (hover, foco o arrastre).
   useEffect(() => {
-    if (isInteracting || IMAGES.length < 2) return undefined
+    if (paused || IMAGES.length < 2) return undefined
     const id = setInterval(() => goTo(1), AUTOPLAY_MS)
     return () => clearInterval(id)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInteracting])
-
-  const getOffset = (index) => {
-    const half = IMAGES.length / 2
-    let diff = index - activeIndex
-    if (diff > half) diff -= IMAGES.length
-    if (diff < -half) diff += IMAGES.length
-    return diff
-  }
-
-  const slideStyle = (offset) => {
-    const dragOffset = drag.active ? drag.deltaX / 220 : 0
-    const effective = offset - dragOffset
-    const abs = Math.abs(effective)
-    const visible = abs <= 2
-
-    return {
-      transform: `translateX(${effective * 56}%) translateZ(${-abs * 160}px) rotateY(${effective * -30}deg) scale(${Math.max(1 - abs * 0.2, 0.5)})`,
-      opacity: visible ? Math.max(1 - abs * 0.4, 0) : 0,
-      zIndex: 10 - Math.round(abs * 10) / 10,
-      filter: abs < 0.05 ? 'none' : `brightness(${Math.max(1 - abs * 0.22, 0.55)}) saturate(${Math.max(1 - abs * 0.2, 0.7)})`,
-      transition: drag.active ? 'none' : 'transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.55s ease, filter 0.55s ease',
-      pointerEvents: visible ? 'auto' : 'none',
-    }
-  }
-
-  const handlePointerDown = (event) => {
-    setIsInteracting(true)
-    setDrag({ active: true, startX: event.clientX, deltaX: 0 })
-    trackRef.current?.setPointerCapture(event.pointerId)
-  }
-
-  const handlePointerMove = (event) => {
-    if (!drag.active) return
-    setDrag((prev) => ({ ...prev, deltaX: event.clientX - prev.startX }))
-  }
-
-  const endDrag = () => {
-    if (!drag.active) return
-    if (drag.deltaX > DRAG_THRESHOLD) goTo(-1)
-    else if (drag.deltaX < -DRAG_THRESHOLD) goTo(1)
-    setDrag({ active: false, startX: 0, deltaX: 0 })
-  }
+  }, [paused])
 
   return (
-    <div
-      className="carousel"
-      onMouseEnter={() => setIsInteracting(true)}
-      onMouseLeave={() => {
-        setIsInteracting(false)
-        endDrag()
-      }}
-    >
+    <div className="carousel" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <div className="carousel__stage">
-        <button
-          type="button"
-          className="carousel__arrow"
-          onClick={() => goTo(-1)}
-          disabled={IMAGES.length < 2}
-          aria-label="Imagen anterior"
-        >
+        <button type="button" className="carousel__arrow" onClick={() => goTo(-1)} aria-label="Imagen anterior">
           ‹
         </button>
 
-        <div
-          className="carousel__track"
-          ref={trackRef}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          onFocus={() => setIsInteracting(true)}
-          onBlur={() => setIsInteracting(false)}
-        >
-          <div className="carousel__glow" aria-hidden="true" />
-          {IMAGES.map((image, index) => {
-            const offset = getOffset(index)
-            return (
-              <div
-                key={image.src}
-                className={`carousel__slide${offset === 0 ? ' carousel__slide--active' : ''}`}
-                style={slideStyle(offset)}
-                onClick={() => offset !== 0 && setActiveIndex(index)}
-              >
-                <img src={image.src} alt={image.label} draggable={false} />
-                <span className="carousel__caption">{image.label}</span>
-              </div>
-            )
-          })}
+        <div className="carousel__track">
+          {IMAGES.map((image, index) => (
+            <div
+              key={image.src}
+              className={`carousel__slide${index === activeIndex ? ' carousel__slide--active' : ''}`}
+            >
+              <img src={image.src} alt={image.label} draggable={false} />
+            </div>
+          ))}
+          <span className="carousel__caption">{IMAGES[activeIndex].label}</span>
         </div>
 
-        <button
-          type="button"
-          className="carousel__arrow"
-          onClick={() => goTo(1)}
-          disabled={IMAGES.length < 2}
-          aria-label="Imagen siguiente"
-        >
+        <button type="button" className="carousel__arrow" onClick={() => goTo(1)} aria-label="Siguiente imagen">
           ›
         </button>
       </div>

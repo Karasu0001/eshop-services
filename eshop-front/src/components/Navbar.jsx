@@ -31,11 +31,11 @@ export default function Navbar() {
           Productos
         </NavLink>
         <NavLink to="/cart" className={({ isActive }) => (isActive ? 'active' : '')}>
-          🛒 Carrito
+          Carrito
           {totalItems > 0 && <span className="navbar__badge">{totalItems}</span>}
         </NavLink>
         <NavLink to="/orders" className={({ isActive }) => (isActive ? 'active' : '')}>
-          📦 Mis órdenes
+          Mis órdenes
         </NavLink>
       </nav>
 
@@ -70,7 +70,26 @@ export default function Navbar() {
         title={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
         aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
       >
-        {theme === 'dark' ? '☀️' : '🌙'}
+        {theme === 'dark' ? (
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <circle cx="8" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.4" />
+            <path
+              d="M8 0.8V2.6M8 13.4V15.2M15.2 8H13.4M2.6 8H0.8M13.1 2.9L11.8 4.2M4.2 11.8L2.9 13.1M13.1 13.1L11.8 11.8M4.2 4.2L2.9 2.9"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path
+              d="M14 9.3A6.2 6.2 0 1 1 6.7 2a5 5 0 0 0 7.3 7.3Z"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
       </button>
     </header>
   )

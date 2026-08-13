@@ -48,3 +48,6 @@ lerna-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Guia de estudio personal, no es parte del entregable
+/GUIA-DE-ESTUDIO.md

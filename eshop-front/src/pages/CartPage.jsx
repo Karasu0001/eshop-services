@@ -43,7 +43,7 @@ export default function CartPage() {
   if (confirmedOrder) {
     return (
       <section className="cart-page">
-        <h1>¡Compra confirmada! 🎉</h1>
+        <h1>Compra confirmada</h1>
         <div className="receipt-card">
           <span className="receipt-card__badge">✓ Orden registrada</span>
 

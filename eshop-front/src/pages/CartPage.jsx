@@ -8,6 +8,12 @@ import Loader from '../components/Loader'
 
 const currencyFallback = (value) => `$${Number(value).toFixed(2)}`
 
+const STATUS_LABEL = {
+  Pending: 'Pendiente',
+  Confirmed: 'Confirmada',
+  Cancelled: 'Cancelada',
+}
+
 export default function CartPage() {
   const { cart, loading, error, totalPrice, removeItem, updateQuantity, clearCart, userName } = useCart()
   const { format } = useCurrency()
@@ -38,27 +44,50 @@ export default function CartPage() {
     return (
       <section className="cart-page">
         <h1>¡Compra confirmada! 🎉</h1>
-        <div className="order-confirmation">
-          <p>
-            Orden <strong>{confirmedOrder.id}</strong> — estado <strong>{confirmedOrder.status}</strong>
-          </p>
-          <ul className="order-confirmation__items">
+        <div className="receipt-card">
+          <div className="receipt-card__barcode" aria-hidden="true" />
+
+          <div className="receipt-card__header">
+            <div>
+              <span className="receipt-card__eyebrow">Orden</span>
+              <strong className="receipt-card__id">#{confirmedOrder.id}</strong>
+            </div>
+            <span className={`order-status order-status--${confirmedOrder.status.toLowerCase()}`}>
+              {STATUS_LABEL[confirmedOrder.status] ?? confirmedOrder.status}
+            </span>
+          </div>
+
+          <ul className="receipt-card__items">
             {confirmedOrder.items.map((item) => (
               <li key={item.productId}>
-                {item.quantity}× {item.productName} — {currencyFallback(item.lineTotal)}
+                <span>
+                  {item.quantity}× {item.productName}
+                </span>
+                <span>{currencyFallback(item.lineTotal)}</span>
               </li>
             ))}
           </ul>
-          <div className="order-confirmation__totals">
-            <span>Subtotal: {currencyFallback(confirmedOrder.subtotal)}</span>
-            <span>Impuestos: {currencyFallback(confirmedOrder.tax)}</span>
-            <span className="order-confirmation__total">Total: {currencyFallback(confirmedOrder.total)}</span>
+
+          <div className="receipt-card__totals">
+            <div>
+              <span>Subtotal</span>
+              <span>{currencyFallback(confirmedOrder.subtotal)}</span>
+            </div>
+            <div>
+              <span>Impuestos</span>
+              <span>{currencyFallback(confirmedOrder.tax)}</span>
+            </div>
+            <div className="receipt-card__total">
+              <span>Total</span>
+              <span>{currencyFallback(confirmedOrder.total)}</span>
+            </div>
           </div>
+
+          <a className="receipt-card__cta" href={getOrderPdfUrl(confirmedOrder.id)} target="_blank" rel="noreferrer">
+            🎫 Ver recibo de compra
+          </a>
         </div>
         <div className="order-confirmation__actions">
-          <a className="pdf-link" href={getOrderPdfUrl(confirmedOrder.id)} target="_blank" rel="noreferrer">
-            🧾 Ver comprobante (PDF)
-          </a>
           <Link to="/orders">Ver mis órdenes</Link>
           <Link to="/">Seguir comprando</Link>
         </div>

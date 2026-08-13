@@ -93,7 +93,7 @@ export default function OrdersPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    🧾 PDF
+                    🎫 Recibo
                   </a>
                   {order.status === 'Pending' && (
                     <>

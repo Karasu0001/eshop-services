@@ -12,6 +12,7 @@
     <PackageReference Include="Carter" Version="9.0.0" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
     <PackageReference Include="MongoDB.Driver" Version="3.11.0" />
+    <PackageReference Include="QuestPDF" Version="2026.7.3" />
   </ItemGroup>
 
   <ItemGroup>

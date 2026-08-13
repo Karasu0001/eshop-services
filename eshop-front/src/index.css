@@ -651,8 +651,38 @@ input[type='search']:focus {
 
 .order-confirmation__actions {
   display: flex;
+  align-items: center;
   gap: 1.25rem;
   margin-top: 1rem;
+}
+
+.pdf-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  padding: 0.6rem 1.25rem;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: var(--shadow-btn);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.pdf-link:hover {
+  background: var(--accent-hover);
+  transform: translateY(-2px);
+}
+
+a.button--secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.85rem;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
 }
 
 /* Ordenes */

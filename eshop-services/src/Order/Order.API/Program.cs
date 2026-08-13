@@ -4,6 +4,11 @@ using OrderService.Basket;
 using OrderService.Data;
 using OrderService.Exceptions;
 using OrderService.Models;
+using QuestPDF.Infrastructure;
+
+// QuestPDF exige declarar el tipo de licencia antes de generar cualquier documento.
+// Community es gratuita para este caso (proyecto educativo / bajos ingresos).
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 

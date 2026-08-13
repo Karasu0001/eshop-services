@@ -30,3 +30,8 @@ export function getOrdersByCustomer(customerId) {
 export function updateOrderStatus(id, status) {
   return http.patch(`/api/orders/${encodeURIComponent(id)}/status`, { status })
 }
+
+// GET /api/orders/{id}/pdf -> comprobante de compra en PDF (se abre inline en el navegador)
+export function getOrderPdfUrl(id) {
+  return `${ORDER_API_URL}/api/orders/${encodeURIComponent(id)}/pdf`
+}

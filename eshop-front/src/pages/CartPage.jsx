@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useCurrency } from '../context/CurrencyContext'
-import { createOrder } from '../api/ordersApi'
+import { createOrder, getOrderPdfUrl } from '../api/ordersApi'
 import ErrorMessage from '../components/ErrorMessage'
 import Loader from '../components/Loader'
 
@@ -56,6 +56,9 @@ export default function CartPage() {
           </div>
         </div>
         <div className="order-confirmation__actions">
+          <a className="pdf-link" href={getOrderPdfUrl(confirmedOrder.id)} target="_blank" rel="noreferrer">
+            🧾 Ver comprobante (PDF)
+          </a>
           <Link to="/orders">Ver mis órdenes</Link>
           <Link to="/">Seguir comprando</Link>
         </div>

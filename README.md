@@ -89,6 +89,7 @@ El impuesto se calcula como **16%** del subtotal (configurable vía `Order__TaxR
 | `GET` | `/api/orders/customer/{customerId}` | Lista las órdenes de un cliente (array vacío si no tiene, no 404). |
 | `GET` | `/api/orders?pageIndex=&pageSize=` | Lista **todas** las órdenes, paginado (endpoint adicional, pedido explícitamente en la explicación en audio del profesor, no está en el contrato mínimo escrito). |
 | `PATCH` | `/api/orders/{id}/status` | Cambia el estado. Body: `{ "status": "Confirmed" \| "Cancelled" }`. Valida transición. |
+| `GET` | `/api/orders/{id}/pdf` | Genera y devuelve el **comprobante de compra en PDF** de la orden (`Content-Type: application/pdf`), con detalle de productos, cantidades, precios y totales — estilo comprobante de Mercado Libre. Se abre inline en el navegador. |
 
 ### Decisiones de diseño / desviaciones del contrato sugerido
 
@@ -96,6 +97,7 @@ El impuesto se calcula como **16%** del subtotal (configurable vía `Order__TaxR
 - **Idempotencia**: `POST /api/orders` acepta el header `Idempotency-Key`. Si se repite la misma clave para el mismo `customerId`, la API **no** crea una orden nueva — devuelve la orden ya existente con `200 OK` (en vez de `201 Created`, para que el cliente pueda distinguir una creación real de un reintento).
 - **Ciclo de vida**: estados `Pending`, `Confirmed`, `Cancelled`. Únicas transiciones válidas: `Pending → Confirmed` y `Pending → Cancelled`. Cualquier otra transición (incluyendo `Confirmed → Cancelled`) responde `409 Conflict`.
 - **Errores**: carrito vacío o inexistente → `400`; producto/cantidad/precio inválido → `400`; orden no encontrada → `404`; transición de estado inválida → `409`; fallo de MongoDB o cualquier error no controlado → `500` con mensaje genérico (nunca se expone el stack trace ni la cadena de conexión al cliente — verificado apagando la base intencionalmente durante las pruebas).
+- **Comprobante en PDF**: generado en el momento (no se guarda en Mongo, se re-renderiza cada vez que se pide) a partir de los mismos datos de la orden, usando **QuestPDF**. Incluye encabezado de marca, número de orden, fecha, badge de estado, tabla de productos (cantidad, precio unitario, subtotal por línea) y el desglose de subtotal/impuestos/total — mismo formato tanto si se pide recién creada la orden como después de cambiar su estado.
 
 ---
 
@@ -127,11 +129,12 @@ Todas corridas contra el entorno **desplegado en producción** (Azure + Atlas re
 | P5 — `Pending → Confirmed` | `200 OK`, estado actualizado |
 | P6 — Transición inválida (`Confirmed → Cancelled`) | `409 Conflict` |
 | P7 — MongoDB no disponible (probado en local apagando el contenedor) | `500` con mensaje genérico, sin stack trace ni datos sensibles |
-| P8 — Flujo completo en React | Agregar al carrito → "Realizar compra" → confirmación visible → "Mis órdenes" → cambiar estado, todo probado en navegador |
+| P8 — Flujo completo en React | Agregar al carrito → "Realizar compra" → confirmación visible → "Mis órdenes" → cambiar estado, todo probado en navegador (local y en el sitio publicado de Netlify) |
+| P9 — Comprobante en PDF | `GET /api/orders/{id}/pdf` devuelve `200` con `application/pdf` válido (verificado abriendo el archivo generado); botón "🧾 PDF" probado desde la confirmación de compra y desde "Mis órdenes" |
 | CORS | Verificado con header `Origin` del sitio de Netlify contra las 3 APIs |
 
 ---
 
 ## 7. Stack técnico (Order.API)
 
-ASP.NET Core 9 Minimal API + Carter (mismo patrón que Catalog.API/Basket.API) · MediatR + FluentValidation (pipeline de logging/validación) · MongoDB.Driver oficial · `HttpClient` tipado hacia Basket.API · Sin Docker en producción (publicado como código vía Visual Studio, igual que los otros dos servicios — ver [`DESPLIEGUE.md`](DESPLIEGUE.md) §2 para el porqué).
+ASP.NET Core 9 Minimal API + Carter (mismo patrón que Catalog.API/Basket.API) · MediatR + FluentValidation (pipeline de logging/validación) · MongoDB.Driver oficial · `HttpClient` tipado hacia Basket.API · **QuestPDF** (generación del comprobante en PDF, licencia Community) · Sin Docker en producción (publicado como código vía Visual Studio, igual que los otros dos servicios — ver [`DESPLIEGUE.md`](DESPLIEGUE.md) §2 para el porqué).

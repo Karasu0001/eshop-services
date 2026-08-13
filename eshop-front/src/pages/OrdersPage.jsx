@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useCart } from '../context/CartContext'
-import { getOrdersByCustomer, updateOrderStatus } from '../api/ordersApi'
+import { getOrderPdfUrl, getOrdersByCustomer, updateOrderStatus } from '../api/ordersApi'
 import ErrorMessage from '../components/ErrorMessage'
 import Loader from '../components/Loader'
 
@@ -86,25 +86,35 @@ export default function OrdersPage() {
 
               <div className="order-card__footer">
                 <span>Total: {currencyFallback(order.total)}</span>
-                {order.status === 'Pending' && (
-                  <div className="order-card__actions">
-                    <button
-                      type="button"
-                      className="button--secondary"
-                      disabled={updatingId === order.id}
-                      onClick={() => handleStatusChange(order.id, 'Cancelled')}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      disabled={updatingId === order.id}
-                      onClick={() => handleStatusChange(order.id, 'Confirmed')}
-                    >
-                      Confirmar
-                    </button>
-                  </div>
-                )}
+                <div className="order-card__actions">
+                  <a
+                    className="button--secondary"
+                    href={getOrderPdfUrl(order.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    🧾 PDF
+                  </a>
+                  {order.status === 'Pending' && (
+                    <>
+                      <button
+                        type="button"
+                        className="button--secondary"
+                        disabled={updatingId === order.id}
+                        onClick={() => handleStatusChange(order.id, 'Cancelled')}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={updatingId === order.id}
+                        onClick={() => handleStatusChange(order.id, 'Confirmed')}
+                      >
+                        Confirmar
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </article>
           ))}

@@ -15,20 +15,26 @@ Este documento explica **cómo quedó desplegado el proyecto en la nube**: qué 
 │   bucolic-travesseiro-    │        │  ┌──────────────────────────┐      │
 │   a1f32c.netlify.app      │        │  │ App Service (Linux, código) │      │
 └─────────────────────────┘         │  │ eshop-catalog-api-karasu    │──┼──▶ Neon Postgres · catalogdb
-                                      │  └──────────────────────────┘      │
-                                      │  ┌──────────────────────────┐      │
-                                      │  │ App Service (Linux, código) │      │
-                                      │  │ eshop-basket-api-karasu     │──┼──▶ Neon Postgres · basketdb
-                                      │  └──────────────────────────┘      │
-                                      │              │                     │
-                                      │              └───────────────────┼──▶ Upstash Redis
+                │                     │  └──────────────────────────┘      │
+                │                     │  ┌──────────────────────────┐      │
+                │                     │  │ App Service (Linux, código) │      │
+                │──HTTPS─────────────▶│  │ eshop-basket-api-karasu     │──┼──▶ Neon Postgres · basketdb
+                │                     │  └──────────────────────────┘      │
+                │                     │              │                     │
+                │                     │              └───────────────────┼──▶ Upstash Redis
+                │                     │  ┌──────────────────────────┐      │
+                └──HTTPS─────────────▶│  │ App Service (Linux, código) │      │
+                                      │  │ eshop-order-api-karasu      │──┼──▶ MongoDB Atlas · OrderDb
+                                      │  └──────────┬───────────────┘      │
+                                      │             └── HTTP interno ──────┼──▶ Basket.API (consulta el carrito)
                                       └──────────────────────────────────┘
 ```
 
 - **Frontend**: React (Vite) en **Netlify**, build automático desde este repo (rama `main`, carpeta `eshop-front`).
-- **Catalog.API** y **Basket.API**: dos **Azure App Service (Linux) independientes**, cada uno con su propio plan de hosting, publicados como **código (no contenedor)** directamente desde Visual Studio (`Publicar` → Zip Deploy).
-- **Bases de datos**: dos bases separadas (`catalogdb`, `basketdb`) dentro del **mismo proyecto de Neon** (Postgres serverless) — cada API solo usa la suya (Database per Service).
+- **Catalog.API**, **Basket.API** y **Order.API**: tres **Azure App Service (Linux) independientes**, cada uno con su propio plan de hosting, publicados como **código (no contenedor)** directamente desde Visual Studio (`Publicar` → Zip Deploy).
+- **Bases de datos**: `catalogdb` y `basketdb` (Postgres) viven en el **mismo proyecto de Neon** — cada API solo usa la suya (Database per Service). `Order.API` usa una base separada en **MongoDB Atlas** (`OrderDb`), sin relación con Neon.
 - **Redis**: una instancia de **Upstash**, usada solo por Basket.API como caché delante de Postgres.
+- `Order.API` no tiene acceso directo a la base de `Basket.API` — para generar una orden le consulta el carrito por HTTP, igual que el frontend (ver README §2).
 - Todo vive en el **grupo de recursos `rg-eshop-services`**, suscripción **Azure for Students**.
 
 No hay Docker involucrado en el despliegue final a la nube — el `docker-compose.override.yml` del repo es **solo para desarrollo local**.
@@ -46,18 +52,20 @@ En vez de compilar Docker localmente y pelear con credenciales de registro, se c
 
 > Quedaron un **Azure Container Registry (`eshopservicesacr`)** y un intento de **Container Apps Environment** creados pero sin usar — se pueden borrar del grupo de recursos si se quiere limpiar/ahorrar cuota, no son necesarios para que el proyecto funcione.
 
+`Order.API` (agregado en la segunda fase del proyecto) se publicó directamente con este mismo método probado — App Service en modo código — sin repetir el intento con Container Apps.
+
 ---
 
 ## 3. Backend — Azure App Service
 
-| | Catalog.API | Basket.API |
-|---|---|---|
-| Nombre del recurso | `eshop-catalog-api-karasu` | `eshop-basket-api-karasu` |
-| URL pública | `https://eshop-catalog-api-karasu-hkhfejebgrgde5de.canadacentral-01.azurewebsites.net` | `https://eshop-basket-api-karasu-aedzh3bufvd4dydg.canadacentral-01.azurewebsites.net` |
-| Región | Canada Central | Canada Central |
-| Runtime | .NET 9 (Linux, código — no contenedor) | .NET 9 (Linux, código — no contenedor) |
-| Método de publicación | Visual Studio → clic derecho en el proyecto → **Publicar** → perfil "Zip Deploy" | Igual |
-| Perfil de publicación | `src/Catalog.API/Properties/PublishProfiles/*.pubxml` (en el repo, sin credenciales) | `src/Basket/Basket.API/Properties/PublishProfiles/*.pubxml` |
+| | Catalog.API | Basket.API | Order.API |
+|---|---|---|---|
+| Nombre del recurso | `eshop-catalog-api-karasu` | `eshop-basket-api-karasu` | `eshop-order-api-karasu` |
+| URL pública | `https://eshop-catalog-api-karasu-hkhfejebgrgde5de.canadacentral-01.azurewebsites.net` | `https://eshop-basket-api-karasu-aedzh3bufvd4dydg.canadacentral-01.azurewebsites.net` | `https://eshop-order-api-karasu-fjdeawhqcyeddrhc.canadacentral-01.azurewebsites.net` |
+| Región | Canada Central | Canada Central | Canada Central |
+| Runtime | .NET 9 (Linux, código — no contenedor) | .NET 9 (Linux, código — no contenedor) | .NET 9 (Linux, código — no contenedor) |
+| Método de publicación | Visual Studio → clic derecho en el proyecto → **Publicar** → perfil "Zip Deploy" | Igual | Igual |
+| Perfil de publicación | `src/Catalog.API/Properties/PublishProfiles/*.pubxml` (en el repo, sin credenciales) | `src/Basket/Basket.API/Properties/PublishProfiles/*.pubxml` | `src/Order/Order.API/Properties/PublishProfiles/*.pubxml` |
 
 ### Application Settings — `eshop-catalog-api-karasu`
 
@@ -78,9 +86,21 @@ Todo lo anterior (con `Database=basketdb`) más:
 |---|---|---|
 | `ConnectionStrings__Redis` | `<host-upstash>:6379,password=<password>,ssl=True,abortConnect=False` | Formato de `StackExchange.Redis`, **no** una URL `redis://`. Ver [§5](#5-caché--upstash-redis) |
 
+### Application Settings — `eshop-order-api-karasu`
+
+| Nombre | Valor | Notas |
+|---|---|---|
+| `ASPNETCORE_ENVIRONMENT` | `Production` | |
+| `MongoDb__ConnectionString` | `mongodb+srv://<usuario>:<password>@<cluster>.mongodb.net/?appName=Cluster0` | Ver [§6](#6-base-de-datos-de-orderapi--mongodb-atlas) |
+| `MongoDb__DatabaseName` | `OrderDb` | |
+| `Services__BasketApi` | `https://eshop-basket-api-karasu-aedzh3bufvd4dydg.canadacentral-01.azurewebsites.net` | URL pública de Basket.API en Azure (no localhost) |
+| `Cors__AllowedOrigins__0` | `http://localhost:5173` | |
+| `Cors__AllowedOrigins__1` | `https://bucolic-travesseiro-a1f32c.netlify.app` | |
+| `Order__TaxRate` | `0.16` | Opcional, mismo default que en local |
+
 ### Puerto / Kestrel
 
-No se configuró `WEBSITES_PORT` en ningún App Service — al ser despliegue de **código** (no contenedor), Azure App Service Linux inyecta automáticamente la variable `PORT`, y `Program.cs` de ambas APIs ya la lee desde antes (código agregado originalmente pensando en Render.com):
+No se configuró `WEBSITES_PORT` en ningún App Service — al ser despliegue de **código** (no contenedor), Azure App Service Linux inyecta automáticamente la variable `PORT`, y `Program.cs` de las tres APIs ya la lee desde antes (código agregado originalmente pensando en Render.com):
 
 ```csharp
 var port = Environment.GetEnvironmentVariable("PORT");
@@ -110,6 +130,8 @@ Host=<host>;Port=5432;Database=<catalogdb|basketdb>;Username=<usuario>;Password=
 
 Verificado en su momento con una conexión real de prueba (`SELECT version()`) contra ambas bases antes de configurarlas en Azure — ambas respondieron con Postgres 15.18.
 
+`Order.API` **no** usa Neon ni ninguna base relacional — ver [§6](#6-base-de-datos-de-orderapi--mongodb-atlas) para su base propia en MongoDB Atlas.
+
 ---
 
 ## 5. Caché — Upstash Redis
@@ -128,7 +150,22 @@ Verificado con `PING` y un `SET`/`GET` de prueba antes de configurarlo en Azure.
 
 ---
 
-## 6. Frontend — Netlify
+## 6. Base de datos de Order.API — MongoDB Atlas
+
+- Un solo **cluster de MongoDB Atlas**, con una única base `OrderDb` — sin relación con los clusters de Neon (Database per Service: `Order.API` es dueño exclusivo de esta base).
+- Formato de connection string (driver oficial `MongoDB.Driver`):
+  ```
+  mongodb+srv://<usuario>:<password>@<cluster>.mongodb.net/?appName=Cluster0
+  ```
+- **Network Access de Atlas** debe permitir las conexiones entrantes desde Azure App Service (en un proyecto educativo, lo más simple es `0.0.0.0/0`; para restringir más habría que usar las IPs salientes del App Service, que Azure no garantiza fijas en el plan usado).
+
+**Dónde ver las credenciales reales**: panel de Atlas → cluster → **Connect** → "Drivers" → `.NET` (te da la cadena `mongodb+srv://...` completa con usuario, solo falta rellenar el password del usuario de base de datos que crees en Atlas, no el de tu cuenta).
+
+Variables correspondientes en Azure: `MongoDb__ConnectionString` y `MongoDb__DatabaseName` (ver [§3](#3-backend--azure-app-service)).
+
+---
+
+## 7. Frontend — Netlify
 
 | | Valor |
 |---|---|
@@ -145,45 +182,51 @@ Verificado con `PING` y un `SET`/`GET` de prueba antes de configurarlo en Azure.
 |---|---|
 | `VITE_CATALOG_API_URL` | `https://eshop-catalog-api-karasu-hkhfejebgrgde5de.canadacentral-01.azurewebsites.net` |
 | `VITE_BASKET_API_URL` | `https://eshop-basket-api-karasu-aedzh3bufvd4dydg.canadacentral-01.azurewebsites.net` |
+| `VITE_ORDER_API_URL` | `https://eshop-order-api-karasu-fjdeawhqcyeddrhc.canadacentral-01.azurewebsites.net` |
 
 Cada push a `main` en `eshop-front/` dispara un build y deploy automático en Netlify.
 
 ---
 
-## 7. CORS
+## 8. CORS
 
-Ambas APIs (.NET) tienen una política de CORS nombrada `"Frontend"` (`Program.cs`) que lee los orígenes permitidos desde `Cors:AllowedOrigins` — en Azure eso se sobreescribe con las variables `Cors__AllowedOrigins__0`, `__1`, etc. (ver [§3](#3-backend--azure-app-service)).
+Las tres APIs (.NET) tienen una política de CORS nombrada `"Frontend"` (`Program.cs`) que lee los orígenes permitidos desde `Cors:AllowedOrigins` — en Azure eso se sobreescribe con las variables `Cors__AllowedOrigins__0`, `__1`, etc. (ver [§3](#3-backend--azure-app-service)).
 
-Actualmente permitidos en **ambas** APIs:
+Actualmente permitidos en **las tres** APIs:
 - `http://localhost:5173` (desarrollo local del frontend)
 - `https://bucolic-travesseiro-a1f32c.netlify.app` (sitio publicado)
 
-Verificado con `curl -H "Origin: https://bucolic-travesseiro-a1f32c.netlify.app"` contra ambas APIs — responden `Access-Control-Allow-Origin` correctamente.
+Verificado con `curl -H "Origin: https://bucolic-travesseiro-a1f32c.netlify.app"` contra las tres APIs — responden `Access-Control-Allow-Origin` correctamente.
 
-**Si el dominio de Netlify cambia** (o se agrega un dominio propio), hay que agregar el nuevo origen como una variable `Cors__AllowedOrigins__N` más en **ambos** App Service — si falta en cualquiera de las dos APIs, el navegador bloqueará esas peticiones específicas aunque la otra funcione.
+**Si el dominio de Netlify cambia** (o se agrega un dominio propio), hay que agregar el nuevo origen como una variable `Cors__AllowedOrigins__N` más en **las tres** App Service — si falta en cualquiera de las tres APIs, el navegador bloqueará esas peticiones específicas aunque las otras funcionen.
 
 ---
 
-## 8. Resumen rápido — qué tocar y dónde
+## 9. Resumen rápido — qué tocar y dónde
 
 | Quiero cambiar... | Dónde |
 |---|---|
 | Código del frontend | Push a `main` → Netlify redeploya solo |
-| Código de Catalog.API o Basket.API | Visual Studio → Publicar (perfil ya guardado) → sube directo a Azure, no hay CI/CD automático |
-| Connection string de una base de datos | Azure Portal → App Service correspondiente → Configuración → `ConnectionStrings__Database` |
+| Código de Catalog.API, Basket.API u Order.API | Visual Studio → Publicar (perfil ya guardado) → sube directo a Azure, no hay CI/CD automático |
+| Connection string de Catalog.API/Basket.API (Postgres) | Azure Portal → App Service correspondiente → Configuración → `ConnectionStrings__Database` |
+| Connection string de Order.API (MongoDB Atlas) | Azure Portal → `eshop-order-api-karasu` → Configuración → `MongoDb__ConnectionString` |
 | Credenciales de Redis | Azure Portal → `eshop-basket-api-karasu` → Configuración → `ConnectionStrings__Redis` |
-| Orígenes permitidos (CORS) | Azure Portal → **ambos** App Service → Configuración → `Cors__AllowedOrigins__N` |
+| Orígenes permitidos (CORS) | Azure Portal → **las tres** App Service → Configuración → `Cors__AllowedOrigins__N` |
 | Variables del frontend (URLs de API) | Netlify → Site settings → Environment variables → redeploy manual o nuevo push |
 
 ---
 
-## 9. Entorno local (para contraste)
+## 10. Entorno local (para contraste)
 
-El desarrollo local **no usa nada de lo anterior** — corre todo en Docker en la máquina:
+El desarrollo local **no usa nada de lo anterior** — corre todo en Docker en la máquina, salvo Order.API:
 
 ```bash
 cd eshop-services
 docker compose up -d --build
 ```
 
-Levanta `catalogdb` (5433), `basketdb` (5434), `distributedcache`/Redis (6379), `catalog.api` (6000→8080) y `basket.api` (6001→8080). El frontend local (`npm run dev` en `eshop-front`) apunta a esos puertos vía `.env.development`. Ver `ARQUITECTURA.md` para el detalle completo de la arquitectura de código.
+Levanta `catalogdb` (5433), `basketdb` (5434), `distributedcache`/Redis (6379), `catalog.api` (6003→8080) y `basket.api` (6001→8080).
+
+`Order.API` **no** corre en Docker ni en local ni en producción — se ejecuta como código (`dotnet run`) contra una base de MongoDB Atlas propia; ver README §3 para el comando completo con las variables de entorno necesarias.
+
+El frontend local (`npm run dev` en `eshop-front`) apunta a los tres servicios (`6003`, `6001`, `6002`) vía `.env.development`. Ver `ARQUITECTURA.md` para el detalle completo de la arquitectura de código.

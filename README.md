@@ -34,7 +34,6 @@ No hay Swagger habilitado (por indicación explícita del profesor en la explica
 - **Database per Service**: cada microservicio es dueño de su propia base de datos. `Order.API` **no** tiene acceso directo a la base de `Basket.API` — para generar una orden, le consulta el carrito por HTTP (`GET /basket/{userName}`), igual que lo haría el frontend.
 - Detalle completo de la arquitectura de código (patrones, librerías, CQRS, etc.): [`eshop-services/ARQUITECTURA.md`](eshop-services/ARQUITECTURA.md).
 - Detalle completo del despliegue en la nube (Azure, Neon, Upstash, Netlify, variables de entorno): [`DESPLIEGUE.md`](DESPLIEGUE.md).
-- Glosario de conceptos técnicos explicados de forma simple: [`GUIA-DE-ESTUDIO.md`](GUIA-DE-ESTUDIO.md).
 
 ---
 

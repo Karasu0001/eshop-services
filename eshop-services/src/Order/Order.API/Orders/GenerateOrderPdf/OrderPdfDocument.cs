@@ -60,8 +60,8 @@ namespace OrderService.Orders.GenerateOrderPdf
             {
                 column.Item().Row(row =>
                 {
-                    row.ConstantItem(28).Svg(RamenLogoSvg);
-                    row.ConstantItem(6);
+                    row.ConstantItem(34).Height(34).Background("#07271D").CornerRadius(6).Padding(3).Svg(RamenLogoSvg);
+                    row.ConstantItem(8);
                     row.RelativeItem().AlignMiddle().Text("MaruchanMarket").FontSize(20).Bold().FontColor("#07271D");
                     row.ConstantItem(110).AlignRight().Element(c => StatusBadge(c, order.Status));
                 });

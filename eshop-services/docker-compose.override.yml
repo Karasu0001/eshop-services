@@ -44,7 +44,7 @@ services:
       - ASPNETCORE_HTTP_PORTS=8080
       - ConnectionStrings__Database=Host=catalogdb;Port=5432;Database=CatalogDb;Username=postgres;Password=postgres
     ports:
-      - "6000:8080"
+      - "6003:8080"
       - "6060:8081"
     depends_on:
       - catalogdb

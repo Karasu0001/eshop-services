@@ -9,15 +9,15 @@ Proyecto de microservicios en **.NET 9** que implementa un sistema de e-commerce
 ```
 ┌─────────────────┐        ┌─────────────────┐
 │   Catalog.API    │        │   Basket.API     │
-│  (puerto 8080)    │        │  (puerto 8082)    │
+│  (puerto 6000)    │        │  (puerto 6001)    │
 │  Minimal API/     │        │  Minimal API/      │
 │  Carter + MediatR │        │  Carter + MediatR  │
 └────────┬─────────┘        └────────┬─────────┘
-         │ Marten (Postgres)         │ Marten (Postgres)   ┌───────────┐
-         ▼                           ▼                     │  Redis     │
-┌─────────────────┐        ┌─────────────────┐            │ (cache)    │
-│   catalogdb      │        │   basketdb        │◄─────────┤ puerto 6379│
-│ postgres:15       │        │ postgres:15        │         └───────────┘
+         │ Marten (Postgres)         │ Marten (Postgres)   ┌────────────────────┐
+         ▼                           ▼                     │  distributedcache    │
+┌─────────────────┐        ┌─────────────────┐            │  (Redis, cache)      │
+│   catalogdb      │        │   basketdb        │◄─────────┤ puerto 6379          │
+│ postgres:15       │        │ postgres:15        │         └────────────────────┘
 │ puerto 5433→5432 │        │ puerto 5434→5432  │
 └─────────────────┘        └─────────────────┘
 ```
@@ -26,15 +26,15 @@ Cada microservicio es dueño de su propia base de datos (**Database per Service*
 
 ### Contenedores en ejecución (`docker ps`)
 
-| Container       | Imagen           | Puertos host→contenedor | Rol                                   |
-|-----------------|------------------|--------------------------|----------------------------------------|
-| `catalog.api`   | `catalogapi:dev` | `8080:8080`               | API de catálogo de productos           |
-| `basket.api`    | `basketapi:dev`  | `8082:8080`               | API de carrito de compras              |
-| `catalogdb`     | `postgres:15`    | `5433:5432`               | Base de datos del catálogo             |
-| `basketdb`      | `postgres:15`    | `5434:5432`               | Base de datos del carrito              |
-| `redis`         | `redis:7.4`      | `6379:6379`               | Caché distribuida para Basket.API      |
+| Container          | Imagen                              | Puertos host→contenedor      | Rol                                   |
+|---------------------|--------------------------------------|--------------------------------|----------------------------------------|
+| `catalog.api`       | `eshop-services-catalog.api:latest` | `6000:8080`, `6060:8081`      | API de catálogo de productos           |
+| `basket.api`        | `eshop-services-basket.api:latest`  | `6001:8080`, `6061:8081`      | API de carrito de compras              |
+| `catalogdb`         | `postgres:15`                       | `5433:5432`                    | Base de datos del catálogo             |
+| `basketdb`          | `postgres:15`                       | `5434:5432`                    | Base de datos del carrito              |
+| `distributedcache`  | `redis:7.4`                         | `6379:6379`                    | Caché distribuida para Basket.API      |
 
-> Nota: ambos servicios exponen internamente el puerto `8080` (estándar de las imágenes ASP.NET Core en Linux); el mapeo a `8082` en el host para `basket.api` evita el choque de puertos con `catalog.api`.
+> Nota: ambos servicios exponen internamente el puerto `8080` (estándar de las imágenes ASP.NET Core en Linux, fijado también vía `ASPNETCORE_HTTP_PORTS=8080`); el mapeo a `6000`/`6001` en el host evita choques de puerto con otros proyectos locales.
 
 ---
 
@@ -49,18 +49,18 @@ El proyecto usa el patrón estándar de Visual Studio de **compose base + overri
 ### Servicios definidos (override)
 
 ```yaml
-catalogdb   # postgres:15 — user/pass "postgres", DB "CatalogDb", puerto host 5433
-basketdb    # postgres:15 — user/pass "postgres", DB "BasketDb",  puerto host 5434
-catalog.api # build desde src/Catalog.API/Dockerfile, puerto host 8080, depende de catalogdb
-redis       # redis:7.4 — puerto host 6379
-basket.api  # build desde src/Basket/Basket.API/Dockerfile, puerto host 8082, depende de basketdb y redis
+catalogdb          # postgres:15 — user/pass "postgres", DB "CatalogDb", puerto host 5433
+basketdb           # postgres:15 — user/pass "postgres", DB "BasketDb",  puerto host 5434
+distributedcache   # redis:7.4 — puerto host 6379
+catalog.api        # build desde src/Catalog.API/Dockerfile, puerto host 6000 (+6060 para 8081), depende de catalogdb
+basket.api         # build desde src/Basket/Basket.API/Dockerfile, puerto host 6001 (+6061 para 8081), depende de basketdb y distributedcache
 ```
 
 Variables de entorno clave inyectadas por Compose (sobrescriben `appsettings.json` gracias a la convención de configuración jerárquica de .NET, donde `__` representa anidamiento):
 
 - `ASPNETCORE_ENVIRONMENT=Development`
 - `ConnectionStrings__Database` → cadena de conexión Postgres (usa el nombre del **servicio** Compose como host, ej. `catalogdb`, no `localhost`, porque los contenedores se resuelven por nombre dentro de la red interna de Docker).
-- `ConnectionStrings__Redis=redis:6379` (solo en `basket.api`).
+- `ConnectionStrings__Redis=distributedcache:6379` (solo en `basket.api`).
 
 ### Dockerfile (multi-stage build)
 
@@ -85,8 +85,8 @@ El `context: .` en Compose apunta a la raíz del repo (no a la carpeta del proye
 |---|---|---|
 | `/products` | `POST` | Crear producto |
 | `/products` | `GET` | Listar productos (filtro por `name`, paginado `pageIndex`/`pageSize`) |
-| `/products/{id}` | `PUT` | Actualizar producto |
-| `/products/{id}` | `DELETE` | Eliminar producto |
+| `/products/{currentName}` | `PUT` | Actualizar producto — busca por su **nombre actual** (no por `Id`) y actualiza sus datos, incluyendo el propio nombre si cambió |
+| `/products/{name}` | `DELETE` | Eliminar producto por nombre |
 
 **Modelo `Product`**: `Id (Guid)`, `Name`, `Descripcion`, `Category (List<string>)`, `ImageFiles`, `Price (decimal)`.
 
@@ -148,7 +148,7 @@ builder.Services.AddStackExchangeRedisCache(options =>
 
 La serialización usa `System.Text.Json` — el objeto `ShoppingCart` se guarda como **string JSON** bajo la API `IDistributedCache` (abstracción estándar de .NET para cachés distribuidas; `StackExchangeRedisCache` es la implementación concreta que habla el protocolo RESP de Redis).
 
-**Conexión**: `ConnectionStrings__Redis` → en Docker Compose es `redis:6379` (nombre del servicio + puerto interno del contenedor); en ejecución local sin contenedores es `localhost:6379` (ver `appsettings.json` de `Basket.API`).
+**Conexión**: `ConnectionStrings__Redis` → en Docker Compose es `distributedcache:6379` (nombre del servicio + puerto interno del contenedor); en ejecución local sin contenedores es `localhost:6379` (ver `appsettings.json` de `Basket.API`).
 
 ---
 
@@ -186,6 +186,13 @@ La serialización usa `System.Text.Json` — el objeto `ShoppingCart` se guarda 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
+// Render, Azure App Service (código) y otros hosts asignan el puerto dinamicamente via PORT.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 builder.Services.AddCarter();
 
@@ -205,11 +212,18 @@ app.MapCarter();              // registra todos los ICarterModule del ensamblado
 app.UseExceptionHandler(options => { });
 app.Run();
 ```
-Configuración mínima: MediatR + Carter + Marten (Postgres) + CORS + manejo de excepciones. **No usa Redis.**
+Configuración mínima: MediatR + Carter + Marten (Postgres) + CORS + manejo de excepciones. **No usa Redis.** El bloque de `PORT` es justo lo que permitió desplegar en Azure App Service (código) sin configurar `WEBSITES_PORT` — ver [`DESPLIEGUE.md`](../DESPLIEGUE.md) §3.
 
 ### Basket.API (`src/Basket/Basket.API/Program.cs`)
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
+
+// Render, Azure App Service (código) y otros hosts asignan el puerto dinamicamente via PORT.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
 
 builder.Services.AddCarter();
 builder.Services.AddMediatR(cfg =>
@@ -250,13 +264,13 @@ Diferencia clave frente a Catalog.API: agrega **pipeline behaviors** de MediatR 
 
 ## 7. Resumen de puertos
 
-| Servicio     | Puerto contenedor | Puerto host | Protocolo/uso                          |
-|--------------|--------------------|-------------|------------------------------------------|
-| catalog.api  | 8080               | 8080        | HTTP REST (productos)                    |
-| basket.api   | 8080               | 8082        | HTTP REST (carrito)                      |
-| catalogdb    | 5432               | 5433        | PostgreSQL (Marten)                      |
-| basketdb     | 5432               | 5434        | PostgreSQL (Marten)                      |
-| redis        | 6379               | 6379        | RESP (caché distribuida `IDistributedCache`) |
+| Servicio          | Puerto contenedor | Puerto host  | Protocolo/uso                          |
+|--------------------|--------------------|--------------|------------------------------------------|
+| catalog.api        | 8080 (+8081)       | 6000 (+6060) | HTTP REST (productos)                    |
+| basket.api         | 8080 (+8081)       | 6001 (+6061) | HTTP REST (carrito)                      |
+| catalogdb          | 5432               | 5433         | PostgreSQL (Marten)                      |
+| basketdb           | 5432               | 5434         | PostgreSQL (Marten)                      |
+| distributedcache   | 6379               | 6379         | RESP (caché distribuida `IDistributedCache`) |
 
 ---
 

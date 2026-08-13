@@ -10,10 +10,13 @@ export class ApiError extends Error {
   }
 }
 
-async function request(baseUrl, path, { method = 'GET', body, signal } = {}) {
+async function request(baseUrl, path, { method = 'GET', body, signal, headers } = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: {
+      ...(body ? { 'Content-Type': 'application/json' } : undefined),
+      ...headers,
+    },
     body: body ? JSON.stringify(body) : undefined,
     signal,
   })
@@ -37,6 +40,7 @@ export function createHttpClient(baseUrl) {
     get: (path, options) => request(baseUrl, path, { ...options, method: 'GET' }),
     post: (path, body, options) => request(baseUrl, path, { ...options, method: 'POST', body }),
     put: (path, body, options) => request(baseUrl, path, { ...options, method: 'PUT', body }),
+    patch: (path, body, options) => request(baseUrl, path, { ...options, method: 'PATCH', body }),
     delete: (path, options) => request(baseUrl, path, { ...options, method: 'DELETE' }),
   }
 }

@@ -1,12 +1,22 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { useCurrency } from '../context/CurrencyContext'
 import { useTheme } from '../context/ThemeContext'
 
 export default function Navbar() {
-  const { userName, totalItems } = useCart()
+  const { userName, setUserName, totalItems } = useCart()
   const { currencyCode, setCurrencyCode, currencies } = useCurrency()
   const { theme, toggleTheme } = useTheme()
+  const [draftName, setDraftName] = useState(userName)
+
+  // Solo confirmamos el cambio de usuario al salir del campo o presionar Enter,
+  // para no disparar una consulta al carrito en cada tecla presionada.
+  const commitUserName = () => {
+    if (draftName.trim() && draftName.trim() !== userName) {
+      setUserName(draftName)
+    }
+  }
 
   return (
     <header className="navbar">
@@ -19,6 +29,9 @@ export default function Navbar() {
         <NavLink to="/cart" className={({ isActive }) => (isActive ? 'active' : '')}>
           🛒 Carrito
           {totalItems > 0 && <span className="navbar__badge">{totalItems}</span>}
+        </NavLink>
+        <NavLink to="/orders" className={({ isActive }) => (isActive ? 'active' : '')}>
+          📦 Mis órdenes
         </NavLink>
       </nav>
 
@@ -34,8 +47,16 @@ export default function Navbar() {
       </div>
 
       <div className="navbar__user">
-        <span>Usuario</span>
-        <strong>{userName}</strong>
+        <label htmlFor="userName">Usuario</label>
+        <input
+          id="userName"
+          type="text"
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          onBlur={commitUserName}
+          onKeyDown={(e) => e.key === 'Enter' && commitUserName()}
+          placeholder="tu nombre"
+        />
       </div>
 
       <button

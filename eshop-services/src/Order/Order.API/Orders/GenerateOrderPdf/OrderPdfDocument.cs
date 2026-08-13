@@ -13,6 +13,26 @@ namespace OrderService.Orders.GenerateOrderPdf
     {
         private static readonly string CurrencyCulture = "en-US";
 
+        // Azure App Service corre en UTC, asi que DateTime.ToLocalTime() no sirve aqui:
+        // convertimos explicitamente a la zona horaria de Mexico para que la fecha del PDF
+        // coincida con la que ve el usuario en el navegador (que usa su propia zona local).
+        private static readonly TimeZoneInfo MexicoCityZone = ResolveMexicoCityZone();
+
+        private static TimeZoneInfo ResolveMexicoCityZone()
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("America/Mexico_City");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time (Mexico)");
+            }
+        }
+
+        private static DateTime ToMexicoCityTime(DateTime utc) =>
+            TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), MexicoCityZone);
+
         public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
 
         public void Compose(IDocumentContainer container)
@@ -94,7 +114,7 @@ namespace OrderService.Orders.GenerateOrderPdf
                 {
                     row.Spacing(12);
                     row.RelativeItem().Element(c => InfoCard(c, "Orden", $"#{order.Id}",
-                        order.CreatedAt.ToLocalTime().ToString("dd 'de' MMMM 'de' yyyy, HH:mm",
+                        ToMexicoCityTime(order.CreatedAt).ToString("dd 'de' MMMM 'de' yyyy, HH:mm",
                             new System.Globalization.CultureInfo("es-MX"))));
                     row.RelativeItem().Element(c => InfoCard(c, "Cliente", order.CustomerId,
                         $"{order.Items.Count} producto(s) en esta orden"));

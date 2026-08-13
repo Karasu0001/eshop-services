@@ -66,12 +66,19 @@ export default function OrdersPage() {
         <div className="orders-list">
           {orders.map((order) => (
             <article key={order.id} className="order-card">
+              <div className="order-card__barcode" aria-hidden="true" />
               <div className="order-card__header">
-                <div>
-                  <strong>Orden {order.id}</strong>
-                  <span className="order-card__date">{new Date(order.createdAt).toLocaleString()}</span>
+                <div className="order-card__title">
+                  <span className="order-card__icon" aria-hidden="true">
+                    🍜
+                  </span>
+                  <div>
+                    <strong>Orden {order.id}</strong>
+                    <span className="order-card__date">{new Date(order.createdAt).toLocaleString()}</span>
+                  </div>
                 </div>
                 <span className={`order-status order-status--${order.status.toLowerCase()}`}>
+                  <span className="order-status__dot" aria-hidden="true" />
                   {STATUS_LABEL[order.status] ?? order.status}
                 </span>
               </div>

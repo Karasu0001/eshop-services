@@ -45,7 +45,12 @@ export default function CartPage() {
       <section className="cart-page">
         <h1>¡Compra confirmada! 🎉</h1>
         <div className="receipt-card">
-          <div className="receipt-card__barcode" aria-hidden="true" />
+          <span className="receipt-card__badge">✓ Orden registrada</span>
+
+          <div className="receipt-card__barcode" aria-hidden="true">
+            <div className="receipt-card__barcode-bars" />
+          </div>
+          <span className="receipt-card__barcode-code">{String(confirmedOrder.id).toUpperCase()}</span>
 
           <div className="receipt-card__header">
             <div>
@@ -55,6 +60,17 @@ export default function CartPage() {
             <span className={`order-status order-status--${confirmedOrder.status.toLowerCase()}`}>
               {STATUS_LABEL[confirmedOrder.status] ?? confirmedOrder.status}
             </span>
+          </div>
+
+          <div className="receipt-card__product">
+            <span className="receipt-card__product-icon" aria-hidden="true">
+              🍜
+            </span>
+            <div>
+              <strong>{confirmedOrder.items[0]?.productName}</strong>
+              {confirmedOrder.items.length > 1 && <span> y {confirmedOrder.items.length - 1} más</span>}
+              <span className="receipt-card__product-sub">por MaruchanMarket</span>
+            </div>
           </div>
 
           <ul className="receipt-card__items">
@@ -67,6 +83,17 @@ export default function CartPage() {
               </li>
             ))}
           </ul>
+
+          <div className="receipt-card__meta">
+            <div>
+              <span>Cliente</span>
+              <span>{userName}</span>
+            </div>
+            <div>
+              <span>Fecha</span>
+              <span>{new Date(confirmedOrder.createdAt ?? Date.now()).toLocaleString()}</span>
+            </div>
+          </div>
 
           <div className="receipt-card__totals">
             <div>
@@ -86,6 +113,9 @@ export default function CartPage() {
           <a className="receipt-card__cta" href={getOrderPdfUrl(confirmedOrder.id)} target="_blank" rel="noreferrer">
             🎫 Ver recibo de compra
           </a>
+
+          <div className="receipt-card__perforation" aria-hidden="true" />
+          <span className="receipt-card__handle" aria-hidden="true" />
         </div>
         <div className="order-confirmation__actions">
           <Link to="/orders">Ver mis órdenes</Link>

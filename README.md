@@ -13,7 +13,7 @@ Sistema de e-commerce basado en **microservicios**: catálogo de productos, carr
 | **Basket.API** | https://eshop-basket-api-karasu-aedzh3bufvd4dydg.canadacentral-01.azurewebsites.net |
 | **Order.API** | https://eshop-order-api-karasu-fjdeawhqcyeddrhc.canadacentral-01.azurewebsites.net |
 
-No hay Swagger habilitado (por indicación explícita del profesor en la explicación en audio, que prevalece sobre el documento escrito del examen en este punto puntual). Los contratos de cada endpoint están documentados en este README (§4).
+No hay Swagger habilitado. Los contratos de cada endpoint están documentados en este README (§4).
 
 ---
 
@@ -87,7 +87,7 @@ El impuesto se calcula como **16%** del subtotal (configurable vía `Order__TaxR
 | `POST` | `/api/orders` | Genera una orden a partir del carrito del cliente. Body: `{ "customerId": "...", "basketId": "..." }`. Header opcional `Idempotency-Key`. |
 | `GET` | `/api/orders/{id}` | Consulta una orden por su id. |
 | `GET` | `/api/orders/customer/{customerId}` | Lista las órdenes de un cliente (array vacío si no tiene, no 404). |
-| `GET` | `/api/orders?pageIndex=&pageSize=` | Lista **todas** las órdenes, paginado (endpoint adicional, pedido explícitamente en la explicación en audio del profesor, no está en el contrato mínimo escrito). |
+| `GET` | `/api/orders?pageIndex=&pageSize=` | Lista **todas** las órdenes, paginado (endpoint adicional). |
 | `PATCH` | `/api/orders/{id}/status` | Cambia el estado. Body: `{ "status": "Confirmed" \| "Cancelled" }`. Valida transición. |
 | `GET` | `/api/orders/{id}/pdf` | Genera y devuelve el **comprobante de compra en PDF** de la orden (`Content-Type: application/pdf`), con detalle de productos, cantidades, precios y totales — estilo comprobante de Mercado Libre. Se abre inline en el navegador. |
 
@@ -130,7 +130,7 @@ Todas corridas contra el entorno **desplegado en producción** (Azure + Atlas re
 | P6 — Transición inválida (`Confirmed → Cancelled`) | `409 Conflict` |
 | P7 — MongoDB no disponible (probado en local apagando el contenedor) | `500` con mensaje genérico, sin stack trace ni datos sensibles |
 | P8 — Flujo completo en React | Agregar al carrito → "Realizar compra" → confirmación visible → "Mis órdenes" → cambiar estado, todo probado en navegador (local y en el sitio publicado de Netlify) |
-| P9 — Comprobante en PDF | `GET /api/orders/{id}/pdf` devuelve `200` con `application/pdf` válido (verificado abriendo el archivo generado); botón "🧾 PDF" probado desde la confirmación de compra y desde "Mis órdenes" |
+| P9 — Comprobante en PDF | `GET /api/orders/{id}/pdf` devuelve `200` con `application/pdf` válido (verificado abriendo el archivo generado); enlace "Ver recibo de compra" probado desde la confirmación de compra y desde "Mis órdenes" |
 | CORS | Verificado con header `Origin` del sitio de Netlify contra las 3 APIs |
 
 ---

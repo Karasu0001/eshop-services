@@ -51,3 +51,7 @@ Thumbs.db
 
 # Guia de estudio personal, no es parte del entregable
 /GUIA-DE-ESTUDIO.md
+
+# Configuracion local de herramientas, no es parte del entregable
+/.claude/
+/.mcp.json
